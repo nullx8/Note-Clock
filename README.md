@@ -4,6 +4,10 @@ A tiny, always-on-top desktop widget for Windows: an analog clock with a small n
 It stays on top of all other windows, has no frame or title bar, and keeps out of the taskbar and Alt+Tab,
 so it is as unobtrusive as possible.
 
+some more [BLAH-BLAH about it on my website](https://0x8.in.th/18658)
+
+**It's not pretty, but it does exactly one job and stays out of the way. That's all I want from a desktop tool.**
+
 ![Note-Clock at 85% opacity, sitting on top of a busy game window](docs/noteclock-in-use.png)
 
 *Note-Clock in the lower right corner, semi-transparent on top of a crowded window: a quick note on the left,
@@ -36,10 +40,10 @@ Layout:
 
 ## Usage
 
-Run `NoteClock.exe`. To start it with Windows, put a shortcut to it in the folder that opens with
-`Win+R` → `shell:startup`.
+Download the Release file, put it anywhere you want, Run `NoteClock.exe`.
+To start it with Windows, put a shortcut to it in the folder that opens with `Win+R` → `shell:startup`.
 
-## Building
+## Build yourself
 
 No SDK or extra tools needed; it uses the C# compiler that ships with Windows (.NET Framework 4.x):
 
@@ -61,4 +65,4 @@ This produces `NoteClock.exe` from `NoteClock.cs`.
 
 ## License
 
-See [LICENSE](LICENSE).
+MIT [LICENSE](LICENSE).
