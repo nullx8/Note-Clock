@@ -1,6 +1,6 @@
-// ClockNote - a tiny always-on-top, frameless clock with a note pad.
+// NoteClock - a tiny always-on-top, frameless clock with a note pad.
 // Layout: 300px note area on the left, 100x100 analog clock on the right.
-// Drag with the RIGHT mouse button. Settings live in ClockNote.json next to the exe.
+// Drag with the RIGHT mouse button. Settings live in NoteClock.json next to the exe.
 
 using System;
 using System.Drawing;
@@ -100,7 +100,7 @@ namespace NoteClock
 
     public class ClockForm : Form
     {
-        static readonly string SettingsPath = Path.Combine(Application.StartupPath, "ClockNote.json");
+        static readonly string SettingsPath = Path.Combine(Application.StartupPath, "NoteClock.json");
 
         Settings settings;
         TextBox note;
@@ -117,7 +117,7 @@ namespace NoteClock
         {
             settings = LoadSettings();
 
-            Text = "ClockNote";
+            Text = "NoteClock";
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             TopMost = true;
@@ -259,7 +259,7 @@ namespace NoteClock
 
             tray = new NotifyIcon();
             tray.Icon = MakeIcon();
-            tray.Text = "ClockNote";
+            tray.Text = "NoteClock";
             tray.ContextMenu = menu;
             tray.DoubleClick += delegate { hideTimer.Stop(); Show(); Activate(); note.Focus(); };
             tray.Visible = true;
