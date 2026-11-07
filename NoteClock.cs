@@ -6,9 +6,19 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Media;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+
+[assembly: AssemblyTitle("NoteClock")]
+[assembly: AssemblyProduct("NoteClock")]
+[assembly: AssemblyDescription("Always-on-top clock with a note pad")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyInformationalVersion("1.1")]
 
 namespace NoteClock
 {
@@ -103,7 +113,7 @@ namespace NoteClock
         static readonly string SettingsPath = Path.Combine(Application.StartupPath, "NoteClock.json");
 
         Settings settings;
-        TextBox note;
+        RichTextBox note;
         ClockPanel clock;
         NotifyIcon tray;
         Timer tickTimer;
@@ -127,12 +137,13 @@ namespace NoteClock
             Opacity = Clamp(settings.Opacity);
             Location = OnScreenLocation(new Point(settings.X, settings.Y));
 
-            note = new TextBox();
+            // RichTextBox (not TextBox) so the alert time can be colored; everything else stays plain text.
+            note = new RichTextBox();
             note.Multiline = true;
-            note.AcceptsReturn = true;
             note.AcceptsTab = true;
             note.WordWrap = true;
-            note.ScrollBars = ScrollBars.None;
+            note.DetectUrls = false;
+            note.ScrollBars = RichTextBoxScrollBars.None;
             note.BorderStyle = BorderStyle.None;
             note.BackColor = Color.FromArgb(35, 35, 35);
             note.ForeColor = Color.Gainsboro;
@@ -140,9 +151,16 @@ namespace NoteClock
             note.Bounds = new Rectangle(4, 4, 292, 92);
             note.Text = settings.Note ?? "";
             note.ContextMenu = new ContextMenu(); // suppress default right-click menu so right-drag works
-            note.TextChanged += delegate { saveTimer.Stop(); saveTimer.Start(); };
-            // TextBox selects all text when it first gets focus; put the caret at the end instead so typing can't wipe the note.
-            note.GotFocus += delegate { BeginInvoke((MethodInvoker)delegate { if (note.SelectionLength == note.TextLength) note.Select(note.TextLength, 0); }); };
+            note.TextChanged += delegate { ColorAlertTime(); saveTimer.Stop(); saveTimer.Start(); };
+            // Paste as plain text so no fonts or colors come in from other apps.
+            note.KeyDown += (s, e) =>
+            {
+                if ((e.Control && e.KeyCode == Keys.V) || (e.Shift && e.KeyCode == Keys.Insert))
+                {
+                    e.SuppressKeyPress = true;
+                    if (Clipboard.ContainsText()) note.SelectedText = Clipboard.GetText();
+                }
+            };
 
             clock = new ClockPanel();
             clock.Bounds = new Rectangle(300, 0, 100, 100);
@@ -162,7 +180,7 @@ namespace NoteClock
 
             tickTimer = new Timer();
             tickTimer.Interval = 1000;
-            tickTimer.Tick += delegate { clock.Invalidate(); };
+            tickTimer.Tick += delegate { clock.Invalidate(); CheckAlert(); };
             tickTimer.Start();
 
             // Debounce note saves so we don't write on every keystroke.
@@ -182,6 +200,72 @@ namespace NoteClock
             };
 
             BuildTray();
+            Load += delegate { ColorAlertTime(); };
+        }
+
+        static readonly Color AlertColor = Color.LimeGreen;
+        [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        // Colors the leading time green when it's recognized as an alert, so the color confirms the alert is set.
+        void ColorAlertTime()
+        {
+            const int WM_SETREDRAW = 0x0B;
+            int selStart = note.SelectionStart, selLength = note.SelectionLength;
+            SendMessage(note.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+
+            note.SelectAll();
+            note.SelectionColor = note.ForeColor;
+            Match m = AlertPattern.Match(note.Text);
+            if (m.Success)
+            {
+                int start = m.Groups[1].Index;
+                note.Select(start, m.Groups[2].Index + m.Groups[2].Length - start);
+                note.SelectionColor = AlertColor;
+            }
+            note.Select(selStart, selLength);
+            if (selLength == 0) note.SelectionColor = note.ForeColor; // so new typing after the time isn't green
+
+            SendMessage(note.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
+            note.Invalidate();
+        }
+
+        // A note starting with a time like "23:59" (or "9:05") is an alert; anything after the time is ignored for matching.
+        static readonly Regex AlertPattern = new Regex(@"^\s*([01]?\d|2[0-3]):([0-5]\d)(?!\d)");
+        string lastAlertKey; // date + time of the alert that already fired, so each fires once per day
+
+        void CheckAlert()
+        {
+            Match m = AlertPattern.Match(note.Text);
+            if (!m.Success) return;
+            DateTime now = DateTime.Now;
+            if (now.Hour != int.Parse(m.Groups[1].Value) || now.Minute != int.Parse(m.Groups[2].Value)) return;
+            string key = now.ToString("yyyy-MM-dd HH:mm");
+            if (key == lastAlertKey) return;
+            lastAlertKey = key;
+            // Show outside the timer tick; the popup's modal loop keeps the clock ticking.
+            BeginInvoke((MethodInvoker)ShowAlert);
+        }
+
+        void ShowAlert()
+        {
+            if (!Visible) { hideTimer.Stop(); ShowNoActivate(); }
+
+            // The message box plays the sound once; repeat it twice more (3 in total). The popup stays until dismissed.
+            Timer beep = new Timer();
+            beep.Interval = 2000;
+            int repeats = 0;
+            beep.Tick += delegate
+            {
+                SystemSounds.Exclamation.Play();
+                if (++repeats >= 2) beep.Stop();
+            };
+            beep.Start();
+
+            string firstLine = note.Text.TrimStart().Split('\n')[0].Trim();
+            MessageBox.Show(this, firstLine, "NoteClock alert", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+
+            beep.Stop();
+            beep.Dispose();
         }
 
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
@@ -259,7 +343,7 @@ namespace NoteClock
 
             tray = new NotifyIcon();
             tray.Icon = MakeIcon();
-            tray.Text = "NoteClock";
+            tray.Text = "NoteClock " + Application.ProductVersion;
             tray.ContextMenu = menu;
             tray.DoubleClick += delegate { hideTimer.Stop(); Show(); Activate(); note.Focus(); };
             tray.Visible = true;

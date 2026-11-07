@@ -29,6 +29,8 @@ Layout:
   - Not focused: shows `HH:mm`, the hands are drawn over it.
   - Focused: shows `HH:mm:ss`, drawn on top of the hands.
 - **Note pad** (300 x 100 px) on the left; just click and type.
+- **Alert**: start the note with a time like `23:59` and at that minute you get a sound and a popup
+  (see [Alerts](#alerts)).
 - **Move** the window by dragging it with the **right** mouse button (works anywhere, including the note area).
 - **Poor man's click-through**: double-click the clock face and the window disappears for 10 seconds, so you can
   click whatever is behind it. It comes back without stealing keyboard focus.
@@ -42,6 +44,33 @@ Layout:
 
 Download the Release file, put it anywhere you want, Run `NoteClock.exe`.
 To start it with Windows, put a shortcut to it in the folder that opens with `Win+R` → `shell:startup`.
+
+### Alerts
+
+If the note **starts** with a time, NoteClock uses it as an alert. Everything after the time is just your text:
+
+```
+14:30 call the bank
+check the server logs later
+```
+
+When the time is recognized as an alert it turns **green** in the note, as confirmation that the alert is set.
+If it stays white (e.g. `25:99`, or the time isn't at the very start), no alert will happen.
+
+At 14:30 the Windows warning sound plays 3 times (2 seconds apart) and a popup shows the first line of the note.
+The popup stays until you click OK. If the window was hidden by a double-click, it comes back first.
+
+- `9:05` and `09:05` both work (24-hour format); spaces before the time are ignored.
+- A time somewhere else in the note (e.g. `call at 14:30`) does not trigger anything.
+- Each alert fires once per day. If you leave the note as it is, it rings again the next day at the same time,
+  like a daily alarm. Remove or change the time to stop it.
+- If the PC is asleep during that minute, the alert is skipped.
+
+## Versions
+
+- **1.1**: alert from a time at the start of the note, shown in green when it's set; version shown in the
+  tray tooltip; paste always inserts plain text.
+- **1.0**: first release.
 
 ## Build yourself
 
@@ -57,7 +86,7 @@ This produces `NoteClock.exe` from `NoteClock.cs`.
 
 | File             | Purpose                                      |
 |------------------|----------------------------------------------|
-| `NoteClock.cs`   | The whole application (WinForms, ~350 lines) |
+| `NoteClock.cs`   | The whole application (WinForms, ~400 lines) |
 | `build.bat`      | Compiles `NoteClock.exe`                     |
 | `NoteClock.exe`  | The prebuilt app                             |
 | `NoteClock.json` | Saved position, transparency and note        |
