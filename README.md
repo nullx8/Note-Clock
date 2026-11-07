@@ -4,6 +4,13 @@ A tiny, always-on-top desktop widget for Windows: an analog clock with a small n
 It stays on top of all other windows, has no frame or title bar, and keeps out of the taskbar and Alt+Tab,
 so it is as unobtrusive as possible.
 
+![Note-Clock at 85% opacity, sitting on top of a busy game window](docs/noteclock-in-use.png)
+
+*Note-Clock in the lower right corner, semi-transparent on top of a crowded window: a quick note on the left,
+the clock on the right.*
+
+Layout:
+
 ```
 +------------------------------------+----------+
 |  note area (300 x 100)             |  analog  |
@@ -50,6 +57,7 @@ This produces `NoteClock.exe` from `NoteClock.cs`.
 | `build.bat`      | Compiles `NoteClock.exe`                     |
 | `NoteClock.exe`  | The prebuilt app                             |
 | `NoteClock.json` | Saved position, transparency and note        |
+| `docs/`          | Screenshot used in this README               |
 
 ## License
 
