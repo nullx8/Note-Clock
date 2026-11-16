@@ -25,9 +25,8 @@ Layout:
 
 ## Features
 
-- **Analog clock** (100 x 100 px) with a digital time in the lower part of the face.
-  - Not focused: shows `HH:mm`, the hands are drawn over it.
-  - Focused: shows `HH:mm:ss`, drawn on top of the hands.
+- **Analog clock** (100 x 100 px) with a 7-segment style digital time in the lower part of the face, drawn on top
+  of the hands with a thin outline so it stays readable. Shows `HH:mm`, or `HH:mm:ss` while the window is focused.
 - **Note pad** (300 x 100 px) on the left; just click and type.
 - **Alert**: start the note with a time like `23:59` and at that minute you get a sound and a popup
   (see [Alerts](#alerts)).
@@ -68,6 +67,8 @@ The popup stays until you click OK. If the window was hidden by a double-click, 
 
 ## Versions
 
+- **1.2**: digital time in a 7-segment style, always drawn on top of the hands with an outline so the hands
+  never cover it.
 - **1.1**: alert from a time at the start of the note, shown in green when it's set; version shown in the
   tray tooltip; paste always inserts plain text.
 - **1.0**: first release.

@@ -16,9 +16,9 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("NoteClock")]
 [assembly: AssemblyProduct("NoteClock")]
 [assembly: AssemblyDescription("Always-on-top clock with a note pad")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
-[assembly: AssemblyInformationalVersion("1.1")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyInformationalVersion("1.2")]
 
 namespace NoteClock
 {
@@ -71,9 +71,6 @@ namespace NoteClock
             double min = now.Minute + sec / 60.0;
             double hr = (now.Hour % 12) + min / 60.0;
 
-            // Unfocused: digital time sits under the hands. Focused: it goes on top (with seconds).
-            if (!Active) DrawDigital(g, now, cx, cy, r);
-
             DrawHand(g, cx, cy, hr * Math.PI / 6, r * 0.5f, 3.5f, Color.White);
             DrawHand(g, cx, cy, min * Math.PI / 30, r * 0.75f, 2.5f, Color.White);
             DrawHand(g, cx, cy, sec * Math.PI / 30, r * 0.85f, 1f, Color.OrangeRed);
@@ -81,20 +78,77 @@ namespace NoteClock
             using (Brush hub = new SolidBrush(Color.OrangeRed))
                 g.FillEllipse(hub, cx - 3, cy - 3, 6, 6);
 
-            if (Active) DrawDigital(g, now, cx, cy, r);
+            // Digital time always goes on top of the hands; seconds only while focused.
+            DrawDigital(g, now, cx, cy, r);
         }
+
+        // 7-segment digit size in pixels: width, height, segment thickness, and spacing.
+        const float SegW = 6f, SegH = 10f, SegT = 1.8f, DigitGap = 1.5f, ColonW = 2.5f;
+
+        // Lit segments per digit, bits a..g = 0..6 (a top, b top-right, c bottom-right, d bottom, e bottom-left, f top-left, g middle).
+        static readonly int[] SegMap = { 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F };
 
         void DrawDigital(Graphics g, DateTime now, float cx, float cy, float r)
         {
             string digital = now.ToString(Active ? "HH:mm:ss" : "HH:mm");
-            SizeF ts = g.MeasureString(digital, Font);
-            RectangleF box = new RectangleF(cx - ts.Width / 2, cy + r * 0.35f - ts.Height / 2, ts.Width, ts.Height);
-            // On top of the hands, a face-colored patch keeps the text readable.
-            if (Active)
-                using (Brush bg = new SolidBrush(BackColor))
-                    g.FillRectangle(bg, box.X + 2, box.Y + 1, box.Width - 4, box.Height - 2);
-            using (Brush text = new SolidBrush(Color.Gainsboro))
-                g.DrawString(digital, Font, text, box.X, box.Y);
+
+            float width = 0;
+            foreach (char ch in digital) width += (ch == ':' ? ColonW : SegW) + DigitGap;
+            width -= DigitGap;
+            // Whole-pixel start keeps the thin segments crisp.
+            float x = (float)Math.Round(cx - width / 2), y = (float)Math.Round(cy + r * 0.35f - SegH / 2);
+
+            using (GraphicsPath path = new GraphicsPath())
+            {
+                foreach (char ch in digital)
+                {
+                    if (ch == ':')
+                    {
+                        float d = SegT;
+                        path.AddRectangle(new RectangleF(x + (ColonW - d) / 2, y + SegH * 0.3f - d / 2, d, d));
+                        path.AddRectangle(new RectangleF(x + (ColonW - d) / 2, y + SegH * 0.7f - d / 2, d, d));
+                        x += ColonW + DigitGap;
+                        continue;
+                    }
+                    AddDigit(path, SegMap[ch - '0'], x, y);
+                    x += SegW + DigitGap;
+                }
+
+                // A thin outline in the face color keeps the digits readable where a hand passes under them.
+                // Wide enough to also fill the holes inside the digits, so no hand shows through them.
+                using (Pen outline = new Pen(BackColor, 4f))
+                {
+                    outline.LineJoin = LineJoin.Round;
+                    g.DrawPath(outline, path);
+                }
+                using (Brush text = new SolidBrush(Color.Gainsboro))
+                    g.FillPath(text, path);
+            }
+        }
+
+        static void AddDigit(GraphicsPath path, int segs, float x, float y)
+        {
+            const float gap = 0.3f;
+            float left = x + SegT / 2, right = x + SegW - SegT / 2;
+            float top = y + SegT / 2, mid = y + SegH / 2, bottom = y + SegH - SegT / 2;
+
+            if ((segs & 0x01) != 0) AddSegment(path, left + gap, top, right - gap, top);          // a
+            if ((segs & 0x02) != 0) AddSegment(path, right, top + gap, right, mid - gap);         // b
+            if ((segs & 0x04) != 0) AddSegment(path, right, mid + gap, right, bottom - gap);      // c
+            if ((segs & 0x08) != 0) AddSegment(path, left + gap, bottom, right - gap, bottom);    // d
+            if ((segs & 0x10) != 0) AddSegment(path, left, mid + gap, left, bottom - gap);        // e
+            if ((segs & 0x20) != 0) AddSegment(path, left, top + gap, left, mid - gap);           // f
+            if ((segs & 0x40) != 0) AddSegment(path, left + gap, mid, right - gap, mid);          // g
+        }
+
+        // One segment: a bar from (x1,y1) to (x2,y2), SegT thick, with pointed ends like a real 7-segment display.
+        static void AddSegment(GraphicsPath path, float x1, float y1, float x2, float y2)
+        {
+            float h = SegT / 2;
+            PointF[] pts = (y1 == y2)
+                ? new[] { new PointF(x1, y1), new PointF(x1 + h, y1 - h), new PointF(x2 - h, y2 - h), new PointF(x2, y2), new PointF(x2 - h, y2 + h), new PointF(x1 + h, y1 + h) }
+                : new[] { new PointF(x1, y1), new PointF(x1 + h, y1 + h), new PointF(x2 + h, y2 - h), new PointF(x2, y2), new PointF(x2 - h, y2 - h), new PointF(x1 - h, y1 + h) };
+            path.AddPolygon(pts);
         }
 
         static void DrawHand(Graphics g, float cx, float cy, double angle, float len, float width, Color color)
