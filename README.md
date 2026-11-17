@@ -30,6 +30,8 @@ Layout:
 - **Note pad** (300 x 100 px) on the left; just click and type.
 - **Alert**: start the note with a time like `23:59` and at that minute you get a sound and a popup
   (see [Alerts](#alerts)).
+- **Timer**: start the note with a duration like `10m` or `1h30m` and it becomes an alert that many minutes/hours
+  from now (see [Timers](#timers)).
 - **Move** the window by dragging it with the **right** mouse button (works anywhere, including the note area).
 - **Poor man's click-through**: double-click the clock face and the window disappears for 10 seconds, so you can
   click whatever is behind it. It comes back without stealing keyboard focus.
@@ -60,13 +62,32 @@ At 14:30 the Windows warning sound plays 3 times (2 seconds apart) and a popup s
 The popup stays until you click OK. If the window was hidden by a double-click, it comes back first.
 
 - `9:05` and `09:05` both work (24-hour format); spaces before the time are ignored.
+- Add seconds for an exact time: `14:30:15` rings at 14:30:15 instead of at the start of the minute.
 - A time somewhere else in the note (e.g. `call at 14:30`) does not trigger anything.
 - Each alert fires once per day. If you leave the note as it is, it rings again the next day at the same time,
   like a daily alarm. Remove or change the time to stop it.
 - If the PC is asleep during that minute, the alert is skipped.
 
+### Timers
+
+Start the note with a duration and NoteClock turns it into an alert. When you stop typing for 2 seconds, the
+duration is replaced by the time it ends. For example, typed at 12:18:30:
+
+```
+2m tea is ready   →   12:20:30 tea is ready
+```
+
+From then on it's a normal alert: green, rings at 12:20:30, and it survives closing the app or a reboot.
+
+- Units: `h`, `m`, `s`, also combined in that order: `2h`, `10m`, `45s`, `1h30m`, `90m`.
+- The timer counts from when you typed it, not from when it's rewritten.
+- The duration must be followed by a space or the end of the note, so `2min` or `10 apples` are left alone.
+- Timers of 24 hours or more aren't converted, because an alert time can't express them.
+
 ## Versions
 
+- **1.3**: timers (`10m`, `1h30m`, ...) that turn into an alert at the end time; alerts can include seconds
+  (`14:30:15`).
 - **1.2**: digital time in a 7-segment style, always drawn on top of the hands with an outline so the hands
   never cover it.
 - **1.1**: alert from a time at the start of the note, shown in green when it's set; version shown in the

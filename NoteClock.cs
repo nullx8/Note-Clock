@@ -16,9 +16,9 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("NoteClock")]
 [assembly: AssemblyProduct("NoteClock")]
 [assembly: AssemblyDescription("Always-on-top clock with a note pad")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
-[assembly: AssemblyInformationalVersion("1.2")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyInformationalVersion("1.3")]
 
 namespace NoteClock
 {
@@ -173,6 +173,7 @@ namespace NoteClock
         Timer tickTimer;
         Timer saveTimer;
         Timer hideTimer;
+        Timer convertTimer;
 
         bool dragging;
         Point dragOffset;
@@ -205,7 +206,7 @@ namespace NoteClock
             note.Bounds = new Rectangle(4, 4, 292, 92);
             note.Text = settings.Note ?? "";
             note.ContextMenu = new ContextMenu(); // suppress default right-click menu so right-drag works
-            note.TextChanged += delegate { ColorAlertTime(); saveTimer.Stop(); saveTimer.Start(); };
+            note.TextChanged += delegate { ColorAlertTime(); TrackTimer(); saveTimer.Stop(); saveTimer.Start(); };
             // Paste as plain text so no fonts or colors come in from other apps.
             note.KeyDown += (s, e) =>
             {
@@ -253,8 +254,64 @@ namespace NoteClock
                 hideTimer.Start();
             };
 
+            // A leading timer like "10m" turns into an alarm time once typing pauses for 2 s.
+            convertTimer = new Timer();
+            convertTimer.Interval = 2000;
+            convertTimer.Tick += delegate { convertTimer.Stop(); ConvertTimer(); };
+
             BuildTray();
             Load += delegate { ColorAlertTime(); };
+        }
+
+        // A note starting with a duration like "10m", "2h", "45s" or "1h30m" is a timer.
+        static readonly Regex TimerPattern = new Regex(@"^\s*(?=\d)(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?(?=\s|$)");
+        string pendingTimer;   // the timer text waiting to be converted
+        DateTime pendingSince; // when it was typed; the timer counts from here, not from the conversion
+
+        void TrackTimer()
+        {
+            Match t = TimerPattern.Match(note.Text);
+            string prefix = t.Success ? t.Value.Trim() : null;
+            if (prefix != pendingTimer)
+            {
+                pendingTimer = prefix;
+                pendingSince = DateTime.Now;
+            }
+            // Wait for a pause in typing, so fixing "15m" (passing through "1m") doesn't start the wrong timer.
+            convertTimer.Stop();
+            if (prefix != null) convertTimer.Start();
+        }
+
+        // Rewrites the leading timer as the time it ends, e.g. "2m blah" at 12:18:30 becomes "12:20:30 blah".
+        void ConvertTimer()
+        {
+            Match t = TimerPattern.Match(note.Text);
+            if (!t.Success || t.Value.Trim() != pendingTimer) return;
+
+            TimeSpan duration;
+            try
+            {
+                duration = TimeSpan.FromHours(Part(t, 1)) + TimeSpan.FromMinutes(Part(t, 2)) + TimeSpan.FromSeconds(Part(t, 3));
+            }
+            catch (OverflowException) { return; }
+            if (duration <= TimeSpan.Zero || duration >= TimeSpan.FromDays(1)) return; // an alarm time can't express it
+
+            string at = (pendingSince + duration).ToString("HH:mm:ss");
+            int start = t.Index + (t.Value.Length - t.Value.TrimStart().Length);
+            int length = t.Index + t.Length - start;
+
+            int caret = note.SelectionStart;
+            if (caret >= start + length) caret += at.Length - length;
+            else if (caret > start) caret = start + at.Length;
+
+            note.Select(start, length);
+            note.SelectedText = at;
+            note.Select(caret, 0);
+        }
+
+        static long Part(Match t, int group)
+        {
+            return t.Groups[group].Success ? long.Parse(t.Groups[group].Value) : 0;
         }
 
         static readonly Color AlertColor = Color.LimeGreen;
@@ -273,7 +330,7 @@ namespace NoteClock
             if (m.Success)
             {
                 int start = m.Groups[1].Index;
-                note.Select(start, m.Groups[2].Index + m.Groups[2].Length - start);
+                note.Select(start, m.Index + m.Length - start);
                 note.SelectionColor = AlertColor;
             }
             note.Select(selStart, selLength);
@@ -283,8 +340,8 @@ namespace NoteClock
             note.Invalidate();
         }
 
-        // A note starting with a time like "23:59" (or "9:05") is an alert; anything after the time is ignored for matching.
-        static readonly Regex AlertPattern = new Regex(@"^\s*([01]?\d|2[0-3]):([0-5]\d)(?!\d)");
+        // A note starting with a time like "23:59", "9:05" or "12:20:30" is an alert; anything after the time is ignored for matching.
+        static readonly Regex AlertPattern = new Regex(@"^\s*([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(?![\d:])");
         string lastAlertKey; // date + time of the alert that already fired, so each fires once per day
 
         void CheckAlert()
@@ -292,8 +349,12 @@ namespace NoteClock
             Match m = AlertPattern.Match(note.Text);
             if (!m.Success) return;
             DateTime now = DateTime.Now;
-            if (now.Hour != int.Parse(m.Groups[1].Value) || now.Minute != int.Parse(m.Groups[2].Value)) return;
-            string key = now.ToString("yyyy-MM-dd HH:mm");
+            TimeSpan at = new TimeSpan(int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value),
+                m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0);
+            // Fire anywhere in the minute after the alert time, so a late timer tick can't skip it.
+            TimeSpan since = now.TimeOfDay - at;
+            if (since < TimeSpan.Zero || since >= TimeSpan.FromMinutes(1)) return;
+            string key = now.ToString("yyyy-MM-dd ") + at;
             if (key == lastAlertKey) return;
             lastAlertKey = key;
             // Show outside the timer tick; the popup's modal loop keeps the clock ticking.
