@@ -102,7 +102,8 @@ No SDK or extra tools needed; it uses the C# compiler that ships with Windows (.
 build.bat
 ```
 
-This produces `NoteClock.exe` from `NoteClock.cs`.
+This produces `NoteClock.exe` from `NoteClock.cs`. The exe isn't kept in the repository; ready-built versions
+are attached to the [releases](https://github.com/nullx8/Note-Clock/releases).
 
 ## Files
 
@@ -110,7 +111,6 @@ This produces `NoteClock.exe` from `NoteClock.cs`.
 |------------------|----------------------------------------------|
 | `NoteClock.cs`   | The whole application (WinForms, ~400 lines) |
 | `build.bat`      | Compiles `NoteClock.exe`                     |
-| `NoteClock.exe`  | The prebuilt app                             |
 | `NoteClock.json` | Saved position, transparency and note        |
 | `docs/`          | Screenshot used in this README               |
 
